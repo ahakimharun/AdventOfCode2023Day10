@@ -12,3 +12,4 @@ C:\Users\SaLiVa\source\repos\AdventOfCode2023Day10\AdventOfCode2023Day10\obj\Deb
 C:\Users\SaLiVa\source\repos\AdventOfCode2023Day10\AdventOfCode2023Day10\obj\Debug\net8.0\AdventOfCode2023Day10.pdb
 C:\Users\SaLiVa\source\repos\AdventOfCode2023Day10\AdventOfCode2023Day10\obj\Debug\net8.0\AdventOfCode2023Day10.genruntimeconfig.cache
 C:\Users\SaLiVa\source\repos\AdventOfCode2023Day10\AdventOfCode2023Day10\obj\Debug\net8.0\ref\AdventOfCode2023Day10.dll
+C:\Users\SaLiVa\source\repos\AdventOfCode2023Day10\AdventOfCode2023Day10\obj\Debug\net8.0\AdventOfCode2023Day10.sourcelink.json

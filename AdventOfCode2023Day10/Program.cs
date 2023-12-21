@@ -4,7 +4,7 @@ List<MapNode> map = [];
 
 using (StreamReader reader = File.OpenText(inputFile))
 {
-    uint x = 0, y = 0;
+    int x = 0, y = 0;
     while (!reader.EndOfStream)
     {
         var mapChar = reader.Read();
@@ -106,45 +106,67 @@ for (var i = pipeMap.Count - 1; i >= 0; i--)
 Console.WriteLine("Furthest steps from start: " + pipeMap.Max(x=> x.StepsFromStart));
 
 /* This is part II */
-// Find dot clusters (I guess)
 
-var dotMap = map.Where(x => x.NodeType == '.');
-// Assumption that all dots at the edge are Os
-// They could be seeds for the traversal and transformation of Os
-var edgeDots = dotMap
-    .Where(x => x.X == 0 || x.Y == 0 || x.X == XMaxLimit -1 || x.Y == YMaxLimit - 1);
-foreach (var d in edgeDots)
-    d.SetAsO();
+// Using Shoelace formula to calculate the Area and Pick's Theorem to calculate the number of I's
+var clockwise = DetermineClockwise(pipeMap);
+var area = 0.0d;
 
-// New idea - When walking along the pipe - 'Visit' the dots on the right
-// Then walk backwards and 'revisit' the dots on the left
-// Those that have been 'visited' twice should be in the loop
+for (int i = 0; i < pipeMap.Count; i++)
+{
+    if (i == pipeMap.Count - 1)
+    {
+        area += (pipeMap[i].X * pipeMap[0].Y - pipeMap[i].Y * pipeMap[0].X);
+    }
+    else
+    {
+        area += (pipeMap[i].X * pipeMap[i + 1].Y - pipeMap[i].Y * pipeMap[i + 1].X);
+    }
+}
 
-// Writer for sanity check
+area = 0.5 * double.Abs(area);
+
+var internalPoints = area - pipeMap.Count / 2.0d + 1;
+Console.WriteLine("Area (A): " + area);
+Console.WriteLine("Number of Internal Points (I): " + internalPoints);
+
+
+// // Writer for sanity check
 // using (StreamWriter outputWriter = new StreamWriter(outputFile))
 // {
-//     for (int y = 0; y < YMaxLimit; y++)
+//     for (int y = 0; y <= YMaxLimit; y++)
 //     {
 //         string outputString = string.Empty;
-//         for (int x = 0; x < XMaxLimit; x++)
+//         for (int x = 0; x <= XMaxLimit; x++)
 //         {
 //             var nodeType = pipeMap.FirstOrDefault(p => p.X == x && p.Y == y);
 //             char nodeTypeChar = ' ';
 //             if(nodeType != null)
 //                 nodeTypeChar = nodeType.NodeType;
-//             outputString += nodeTypeChar == '.' ? ' ' : nodeTypeChar;
+//             // outputString += nodeTypeChar == '.' ? ' ' : nodeTypeChar;
+//             outputString += nodeTypeChar;
 //         }
 //         outputWriter.WriteLine(outputString);
 //     }
 // }
 
+bool DetermineClockwise(IReadOnlyList<MapNode> nodes)
+{
+    long total = 0;
+    for (var i = 0; i < nodes.Count - 1; i++)
+    {
+        var n1 = nodes[i];
+        var n2 = nodes[i + 1];
 
-
-Console.WriteLine("Debug");
+        total += (n2.X - n1.X) * (n2.Y + n1.Y);
+    }
     
+    // -ve means clock wise, +ve is counter clock wise
+    return total < 0;
+}
+
 public class MapNode
 {
-    public MapNode(uint x, uint y, char nodeType)
+    public MapNode(int x, int y, char nodeType)
     {
         X = x;
         Y = y;
@@ -153,8 +175,8 @@ public class MapNode
         StepsFromStart = 0;
     }
 
-    public uint X { get; }
-    public uint Y { get; }
+    public int X { get; }
+    public int Y { get; }
     public char NodeType { get; private set; }
 
     public void TriggerVisit()
@@ -166,6 +188,12 @@ public class MapNode
     {
         NodeType = 'O';
     }
+
+    public void SetAsI()
+    {
+        NodeType = 'I';
+    }
+    
     public List<char> EastNodeType 
     {
         get
@@ -217,3 +245,257 @@ public class MapNode
     public int NumberOfVisits { get; private set; }
     public int StepsFromStart { get; set; }
 }
+
+/* While this implementation was fun and long winded - Alas it did not work 
+// Find dot clusters (I guess)
+
+// Find everything that is outside of the pipes
+
+var outsidePipeMap = map.Except(pipeMap).ToList();
+
+// New idea - When walking clockwise along the pipe - The dots on the right are the I's
+// Equally walking anti-clockwise along the pipe - The dots on the left are the I's
+var clockwise = DetermineClockwise(pipeMap);
+
+Console.WriteLine(clockwise ? "Clockwise" : "Anti-clockwise");
+
+for (int i = 1; i < pipeMap.Count; i++)
+{
+    var northDot = outsidePipeMap.FirstOrDefault(x => x.X == pipeMap[i].X && x.Y == pipeMap[i].Y - 1);
+    var southDot = outsidePipeMap.FirstOrDefault(x => x.X == pipeMap[i].X && x.Y == pipeMap[i].Y + 1);
+    var westDot = outsidePipeMap.FirstOrDefault(x => x.X == pipeMap[i].X - 1 && x.Y == pipeMap[i].Y);
+    var eastDot = outsidePipeMap.FirstOrDefault(x => x.X == pipeMap[i].X + 1 && x.Y == pipeMap[i].Y);
+    
+    if (pipeMap[i].NodeType == '-')
+    {
+        if (northDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], northDot);
+            if (!clockwise && isLeft)
+            {
+                northDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                northDot.SetAsI();
+            }
+        }
+        if (southDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], southDot);
+            if (!clockwise && isLeft)
+            {
+                southDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                southDot.SetAsI();
+            }
+        }
+    }
+
+    if (pipeMap[i].NodeType == '|')
+    {
+        if (westDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], westDot);
+            if (!clockwise && isLeft)
+            {
+                westDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                westDot.SetAsI();
+            }
+        }
+        if (eastDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], eastDot);
+            if (!clockwise && isLeft)
+            {
+                eastDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                eastDot.SetAsI();
+            }
+        }
+    }
+    
+    if (pipeMap[i].NodeType == 'J')
+    {
+        if (southDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], southDot);
+            if (!clockwise && isLeft)
+            {
+                southDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                southDot.SetAsI();
+            }
+        }
+        if (eastDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], eastDot);
+            if (!clockwise && isLeft)
+            {
+                eastDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                eastDot.SetAsI();
+            }
+        }
+    }
+    
+    if (pipeMap[i].NodeType == '7')
+    {
+        if (northDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], northDot);
+            if (!clockwise && isLeft)
+            {
+                northDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                northDot.SetAsI();
+            }
+        }
+        if (eastDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], eastDot);
+            if (!clockwise && isLeft)
+            {
+                eastDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                eastDot.SetAsI();
+            }
+        }
+    }
+    
+    if (pipeMap[i].NodeType == 'F')
+    {
+        if (northDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], northDot);
+            if (!clockwise && isLeft)
+            {
+                northDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                northDot.SetAsI();
+            }
+        }
+        if (westDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], westDot);
+            if (!clockwise && isLeft)
+            {
+                westDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                westDot.SetAsI();
+            }
+        }
+    }
+    
+    if (pipeMap[i].NodeType == 'L')
+    {
+        if (southDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], southDot);
+            if (!clockwise && isLeft)
+            {
+                southDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                southDot.SetAsI();
+            }
+        }
+        if (westDot != null)
+        {
+            var isLeft = DetermineIsLeft(pipeMap[i - 1], pipeMap[i], westDot);
+            if (!clockwise && isLeft)
+            {
+                westDot.SetAsI();
+            }
+            if (clockwise && !isLeft)
+            {
+                westDot.SetAsI();
+            }
+        }
+    }
+}
+
+// Got some random I's in the wrong place, but it's good enough for the flood fill algorithm
+
+// Clean up the edges
+foreach (var o in outsidePipeMap.Where(x => x.X == 0 || x.X == XMaxLimit || x.Y == 0 || x.Y == YMaxLimit))
+{
+    if (o.NodeType is '.' or 'I')
+    {
+        var oSeed = outsidePipeMap.First(x => x == o);
+        FloodFill(outsidePipeMap, oSeed, 'O');
+    }
+}
+
+foreach (var i in outsidePipeMap.Where(x => x.NodeType == 'I'))
+{
+    var iSeed = outsidePipeMap.First(x => x == i);
+    FloodFill(outsidePipeMap, iSeed, 'I');
+}
+
+foreach (var e in outsidePipeMap.Where(x => x.NodeType != 'I' && x.NodeType != 'O'))
+{
+    // All others that are not an I and O at this point becomes an O
+    var eSeed = outsidePipeMap.First(x => x == e);
+    FloodFill(outsidePipeMap, eSeed, 'O');
+}
+
+Console.WriteLine("Number of I's:" + outsidePipeMap.Count(x => x.NodeType == 'I'));
+
+void FloodFill(List<MapNode> op, MapNode f, char setChar)
+{
+    switch (setChar)
+    {
+        case 'O':
+            op.First(x => x == f).SetAsO();
+            break;
+        case 'I':
+            op.First(x => x == f).SetAsI();
+            break;
+    }
+
+    var sNode = op.FirstOrDefault(x => x.X == f.X && x.Y == f.Y + 1 && x.NodeType != setChar);
+    var wNode = op.FirstOrDefault(x => x.X == f.X - 1 && x.Y == f.Y && x.NodeType != setChar);
+    var eNode = op.FirstOrDefault(x => x.X == f.X + 1 && x.Y == f.Y && x.NodeType != setChar);
+    var nNode = op.FirstOrDefault(x => x.X == f.X && x.Y == f.Y - 1 && x.NodeType != setChar);
+        
+    if(nNode != null)
+        FloodFill(op, nNode, setChar);
+    if(sNode != null)
+        FloodFill(op, sNode, setChar);
+    if(wNode != null)
+        FloodFill(op, wNode, setChar);
+    if(eNode != null)
+        FloodFill(op, eNode, setChar);
+}
+
+Console.WriteLine("Debug");
+
+bool DetermineIsLeft(MapNode a, MapNode b, MapNode c)
+{
+    var r = (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
+    return r < 0;
+}
+
+
+*/
